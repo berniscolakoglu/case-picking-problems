@@ -1,0 +1,45 @@
+{
+    "num_aisles": 5,
+    "locations_per_aisle": 10,
+    "aisle_draw_size": 2,
+    "location_draw_size": 2,
+    "storage": [
+      {
+        "item": "Parmigiano",
+        "color": "red",
+        "storage": [
+          {"aisle": 0, "loc": 0, "side": "left", "quantity": 100},
+          {"aisle": 0, "loc": 7, "side": "right", "quantity": 50}
+        ]
+      },
+      {
+        "item": "Pecorino",
+        "color": "blue",
+        "storage": [
+          {"aisle": 1, "loc": 2, "side": "left", "quantity": 80},
+          {"aisle": 2, "loc": 3, "side": "right", "quantity": 120}
+        ]
+      },
+      {
+        "item": "Fontina",
+        "color": "green",
+        "storage": [
+          {"aisle": 3, "loc": 4, "side": "left", "quantity": 200},
+          {"aisle": 4, "loc": 9, "side": "right", "quantity": 150}
+        ]
+      }
+    ],
+    "pick_lists": [
+        [
+            {"item": "Parmigiano", "quantity": 10},
+            {"item": "Pecorino", "quantity": 20},
+            {"item": "Fontina", "quantity": 30}
+        ],
+        [
+            {"item": "Fontina", "quantity": 10},
+            {"item": "Parmigiano", "quantity": 20},
+            {"item": "Pecorino", "quantity": 30}
+        ]
+    ]
+  }
+  
