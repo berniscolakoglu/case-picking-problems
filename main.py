@@ -13,57 +13,60 @@ G, _ = build_graph_and_draw_warehouse(config_file)
 
 with open(config_file, 'r') as f:
     config = json.load(f)
-
+plt.savefig('layout.png')
 
 num_aisles = config['num_aisles']
 num_locations_per_aisle = config['locations_per_aisle']
 
-# create set S
-S = {"all": [s['item'] for s in config['storage']], }
-# print(S)
-
-# creating set K
+# create set K
 K = [i for i in range(len(config['pick_lists']))]
-# print(K)
 
-# create set N
-N = {"all": [(i, j, l) for i in range(num_aisles) for j in range(1, num_locations_per_aisle + 1) for l in
-             ['left', 'right']], }
-# print(N)
-
-# create set N_s and parameters q_i
+S = {"all": [], }
+N = {"all": [], }
 q = {}
-for s in config['storage']:
-    N[s["item"]] = []
-    for ns in s["storage"]:
-        N[s["item"]].append((ns["aisle"], ns["loc"] + 1, ns["side"]))
-        q[(ns["aisle"], ns["loc"] + 1, ns["side"])] = ns["quantity"]
-# print(q)
-# print(N)
-
-# create sets S_k, N_k, sf_k, sc_sk and parameters r_sk
 r = {}
 sf = {}
 sc = {}
+
+# create sets S, S_k, sf_k, sc_sk and parameters r_sk
 for k in K:
+    S["all"] = list(set(S["all"] +  [s["item"] for s in config["pick_lists"][k]]))
+    S["all"].sort()
     S[f"list_{k}"] = [s["item"] for s in config["pick_lists"][k]]
     sf[f"list_{k}"] = S[f"list_{k}"][-1]
     for s in config["pick_lists"][k]:
         r[(s["item"], f"list_{k}")] = s["quantity"]
         index = config["pick_lists"][k].index(s)
         if config["pick_lists"][k].index(s) != config["pick_lists"][k].index(config["pick_lists"][k][-1]):
+            # keep the successor only if it exists i.e., no need for final items in the lists
             sc[s["item"], f"list_{k}"] = config["pick_lists"][k][index + 1]["item"]
+
+# create sets N, N_s and parameters q
+for item in S["all"]:
+    N[item] = []
+    for s in config["storage"]:
+        if item == s["item"]:
+            storage = s["storage"]
+            for l in storage:
+                loc = (l["aisle"], l["loc"] + 1, l["side"])
+                N["all"].append(loc)
+                N[item].append(loc)
+                q[loc] = l["quantity"]
+
+# create sets  N_k
+for k in K:
     N[f"list_{k}"] = []
     N[(f"list_{k}", 0)] = []
     for item in S[f"list_{k}"]:
         N[f"list_{k}"] += N[item]
     N[(f"list_{k}", 0)] = N[f"list_{k}"] + [(config["depot"]["aisle"], config["depot"]["loc"])]
-
-# print(S)
-# print(r)
-# print(sf)
-# print(sc)
-# print(N)
+print(K)
+print(S)
+print(N)
+print(q)
+print(r)
+print(sf)
+print(sc)
 
 # create parameter c_ij and shortest paths of (i, j)
 nodes = [node for node in N["all"] + [(config["depot"]["aisle"], config["depot"]["loc"])]]
@@ -78,13 +81,13 @@ for i in nodes:
                                                  method='dijkstra')
             path.at[i, j] = nx.shortest_path(G, source=(i[0], i[1]), target=(j[0], j[1]), weight="cost",
                                              method='dijkstra')
-# print(c)
-# print(path)
+print(c)
+print(path)
 
 # create the model
 model = gp.Model('Case Picking Problem')
 
-# add decision variables together with domain constraints
+# add decision variables together with domain constraints considering picklists
 x_indices = []
 y_indices = []
 v_indices = []
@@ -102,17 +105,13 @@ Cmax = model.addVar(vtype=GRB.INTEGER, name="Cmax")
 
 # add constraints
 # constraint (2)
-model.addConstrs(
-    (gp.quicksum(c.at[i, j] * x[(i, j, f"list_{k}")] for i in N[(f"list_{k}", 0)] for j in N[(f"list_{k}", 0)]) <= Cmax
-     for k in K), name="(2)")
+model.addConstrs((gp.quicksum(c.at[i, j] * x[(i, j, f"list_{k}")] for i in N[(f"list_{k}", 0)] for j in N[(f"list_{k}", 0)]) <= Cmax for k in K), name="(2)")
 
 # constraint (3)
-model.addConstrs((gp.quicksum(y[i, f"list_{k}"] for i in N[s]) == r[s, f"list_{k}"] for k in K for s in S[f"list_{k}"]),
-                 name="(3)")
+model.addConstrs((gp.quicksum(y[i, f"list_{k}"] for i in N[s]) == r[s, f"list_{k}"] for k in K for s in S[f"list_{k}"]), name="(3)")
 
 # constraint (4)
-model.addConstrs((gp.quicksum(y[i1, k] for (i1, k) in y_indices if i1 == i) <= q[i] for s in S["all"] for i in N[s]),
-                 name="(4)")
+model.addConstrs((gp.quicksum(y[i1, k] for (i1, k) in y_indices if i1 == i) <= q[i] for s in S["all"] for i in N[s]), name="(4)")
 
 # constraint (5)
 model.addConstrs(
@@ -120,38 +119,29 @@ model.addConstrs(
      for i in N[s]), name="(5)")
 
 # constraint (6)
-model.addConstrs((x[(config["depot"]["aisle"], config["depot"]["loc"]), (
-    config["depot"]["aisle"], config["depot"]["loc"]), f"list_{k}"] == 0 for k in K), name="(6)")
+model.addConstrs((x[(config["depot"]["aisle"], config["depot"]["loc"]), (config["depot"]["aisle"], config["depot"]["loc"]), f"list_{k}"] == 0 for k in K), name="(6)")
 
 # constraint (7)
-model.addConstrs(
-    (gp.quicksum(x[i, j, f"list_{k}"] for j in N[(f"list_{k}", 0)]) == 1 for k in K for i in N[(f"list_{k}", 0)]),
-    name="(7)")
+model.addConstrs((gp.quicksum(x[i, j, f"list_{k}"] for j in N[(f"list_{k}", 0)]) == 1 for k in K for i in N[(f"list_{k}", 0)]), name="(7)")
 
 # constraint (8)
-model.addConstrs(
-    (gp.quicksum(x[j, i, f"list_{k}"] for j in N[(f"list_{k}", 0)]) == 1 for k in K for i in N[(f"list_{k}", 0)]),
-    name="(8)")
+model.addConstrs((gp.quicksum(x[j, i, f"list_{k}"] for j in N[(f"list_{k}", 0)]) == 1 for k in K for i in N[(f"list_{k}", 0)]), name="(8)")
 
 # constraint (9)
-model.addConstrs(
-    (v[i, f"list_{k}"] + 1 <= v[j, f"list_{k}"] + len(N[f"list_{k}"]) * (1 - x[i, j, f"list_{k}"]) for k in K for i in
-     N[f"list_{k}"] for j in N[f"list_{k}"] if i != j), name="(9)")
+model.addConstrs((v[i, f"list_{k}"] + 1 <= v[j, f"list_{k}"] + len(N[f"list_{k}"]) * (1 - x[i, j, f"list_{k}"]) for k in K for i in N[f"list_{k}"] for j in N[f"list_{k}"] if i != j), name="(9)")
 
 # constraint (10)
 for k in K:
     for s in [item for item in S[f"list_{k}"] if item != sf[f"list_{k}"]]:
         for i in N[s]:
             for j in N[sc[s, f"list_{k}"]]:
-                model.addConstr(
-                    (v[i, f"list_{k}"] + 1 <= v[j, f"list_{k}"]), name="(10)"
-                )
+                model.addConstr((v[i, f"list_{k}"] + 1 <= v[j, f"list_{k}"]), name="(10)")
 
 # set objective function
 model.setObjective(Cmax, GRB.MINIMIZE)
 
 # save model for future inspection
-model.write('CasePicking.lp')
+model.write('try.lp')
 
 # run the optimization engine
 model.optimize()
@@ -189,8 +179,8 @@ for (i, j, k) in x:
 
 print("---------------------------------------------------------------------------------------------------------")
 # get stops (depot and visited pick locations) of each route,
-# get routes for each picklist,
-# get the item and the quantity to be collected at each stop
+# get the item and the quantity to be collected at each stop,
+# get routes for each picklist
 for k in K:
     print(f"Picklist {k}:")
     route[f"list_{k}"] = create_ordered_cycle_from_edges(route[f"list_{k}"],
@@ -212,4 +202,3 @@ for k in K:
     print(f"Picks on stops: {pick[f"list_{k}"]}")
     print(f"Nodes on picker route: {extended_route[f"list_{k}"]}")
     print("---------------------------------------------------------------------------------------------------------")
-plt.show()
