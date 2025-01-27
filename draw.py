@@ -112,7 +112,7 @@ def build_graph_and_draw_warehouse(config_file):
         else:
             color_map.append('red')
             size_map.append(150)
-    nx.draw(G, pos, node_size=size_map, node_color=color_map, ax=ax, with_labels=True) # adding node labels (temporary can be deleted)
+    nx.draw(G, pos, node_size=size_map, node_color=color_map, ax=ax, with_labels=True, font_size=10, verticalalignment="bottom") # adding node labels (temporary can be deleted)
 
     # Add grid and labels
     ax.set_aspect('equal')
