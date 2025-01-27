@@ -3,6 +3,11 @@
     "locations_per_aisle": 10,
     "aisle_draw_size": 2,
     "location_draw_size": 2,
+    "depot":
+    {
+      "aisle": 2,
+      "loc": 0
+    },
     "storage": [
       {
         "item": "Parmigiano",

@@ -86,9 +86,14 @@ def build_graph_and_draw_warehouse(config_file):
             G.add_edge((aisle - 1, 0), (aisle, 0))
             G.add_edge((aisle - 1, locations_per_aisle + 1), (aisle, locations_per_aisle + 1))
 
+
+    # Add edge costs
+    for (start, end) in G.edges:
+        G.edges[start, end]['cost'] = abs(start[0] - end[0]) + abs(start[1] - end[1])
+
     # Draw the boundary around the entire warehouse
     warehouse_width = num_aisles * (aisle_draw_size + 2 * location_draw_size)
-    warehouse_height = (2 + locations_per_aisle) * location_draw_size 
+    warehouse_height = (2 + locations_per_aisle) * location_draw_size
     boundary = plt.Rectangle((0, 0), warehouse_width, warehouse_height, edgecolor='black', facecolor='none', linewidth=2)
     ax.add_patch(boundary)
 
@@ -98,7 +103,16 @@ def build_graph_and_draw_warehouse(config_file):
 
     # Draw the graph
     pos = nx.get_node_attributes(G, 'pos')
-    nx.draw(G, pos, node_size=50, node_color='black', ax=ax)
+    color_map = []
+    size_map = []
+    for node in G:
+        if node != (config["depot"]["aisle"], config["depot"]["loc"]):
+            color_map.append('black')
+            size_map.append(50)
+        else:
+            color_map.append('red')
+            size_map.append(150)
+    nx.draw(G, pos, node_size=size_map, node_color=color_map, ax=ax, with_labels=True) # adding node labels (temporary can be deleted)
 
     # Add grid and labels
     ax.set_aspect('equal')
@@ -110,3 +124,14 @@ def build_graph_and_draw_warehouse(config_file):
 if __name__ == '__main__':
     G, _ = build_graph_and_draw_warehouse("config.json")
     plt.show()
+
+
+
+
+
+
+
+
+
+
+
