@@ -30,7 +30,7 @@ sc = {}
 
 # create sets S, S_k, sf_k, sc_sk and parameters r_sk
 for k in K:
-    S["all"] = list(set(S["all"] +  [s["item"] for s in config["pick_lists"][k]]))
+    S["all"] = list(set(S["all"] + [s["item"] for s in config["pick_lists"][k]]))
     S["all"].sort()
     S[f"list_{k}"] = [s["item"] for s in config["pick_lists"][k]]
     sf[f"list_{k}"] = S[f"list_{k}"][-1]
@@ -60,13 +60,13 @@ for k in K:
     for item in S[f"list_{k}"]:
         N[f"list_{k}"] += N[item]
     N[(f"list_{k}", 0)] = N[f"list_{k}"] + [(config["depot"]["aisle"], config["depot"]["loc"])]
-print(K)
-print(S)
-print(N)
-print(q)
-print(r)
-print(sf)
-print(sc)
+# print(K)
+# print(S)
+# print(N)
+# print(q)
+# print(r)
+# print(sf)
+# print(sc)
 
 # create parameter c_ij and shortest paths of (i, j)
 nodes = [node for node in N["all"] + [(config["depot"]["aisle"], config["depot"]["loc"])]]
@@ -81,8 +81,8 @@ for i in nodes:
                                                  method='dijkstra')
             path.at[i, j] = nx.shortest_path(G, source=(i[0], i[1]), target=(j[0], j[1]), weight="cost",
                                              method='dijkstra')
-print(c)
-print(path)
+# print(c)
+# print(path)
 
 # create the model
 model = gp.Model('Case Picking Problem')
@@ -141,7 +141,7 @@ for k in K:
 model.setObjective(Cmax, GRB.MINIMIZE)
 
 # save model for future inspection
-model.write('try.lp')
+model.write('Case Picking Problem.lp')
 
 # run the optimization engine
 model.optimize()
@@ -150,7 +150,7 @@ model.optimize()
 print("---------------------------------------------------------------------------------------------------------")
 for v in model.getVars():
     if v.x > 1e-6:
-        print(v.varName, v.x)
+        print(f"{v.varName} = {v.x}")
 
 
 def create_ordered_cycle_from_edges(edges, depot):
@@ -200,5 +200,5 @@ for k in K:
                         pick[f"list_{k}"].append((item["item"], y[start_node, f"list_{k}"].x)) # get the item and the quantity from pick locations
     pick[f"list_{k}"].append("depot")
     print(f"Picks on stops: {pick[f"list_{k}"]}")
-    print(f"Nodes on picker route: {extended_route[f"list_{k}"]}")
+    print(f"Picker route: {extended_route[f"list_{k}"]}")
     print("---------------------------------------------------------------------------------------------------------")
